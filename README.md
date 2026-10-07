@@ -13,3 +13,6 @@ A robust enterprise-grade Spring Boot application designed for managing honey pr
 * **Modern Java Features:** Leverages Records, Pattern Matching, and the Streams API for immutable and expressive data handling.
 * **Dependency Injection:** Strictly enforces Constructor Injection, completely avoiding field injection (`@Autowired`).
 * **DTO Isolation:** Request/Response payloads are mapped to dedicated Data Transfer Objects to keep domain entities safe from the presentation layer.
+
+## Architecture & Domain Model
+![Domain Model](docs/HoneyManagementSystem.drawio.png)
