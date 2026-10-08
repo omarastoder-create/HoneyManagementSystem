@@ -1,0 +1,14 @@
+package Rastoder.HoneyManagementSystem.dto.response;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+public record ProductResponse(
+        UUID productId,
+        String description,
+        BigDecimal pricePerUnit,
+        int unitsToSell,
+        LocalDateTime dateOfHarvest
+) {
+}

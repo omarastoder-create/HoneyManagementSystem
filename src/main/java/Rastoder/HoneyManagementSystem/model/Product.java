@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import lombok.experimental.SuperBuilder;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
@@ -18,7 +19,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @SuperBuilder
 @Getter
-public abstract class Product {
+public  class Product {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -31,7 +32,11 @@ public abstract class Product {
     @Column(name = "price_per_unit", nullable = false)
     private BigDecimal pricePerUnit;
 
-    @Column(name = "is_deleted", nullable = false)
-    @Builder.Default
-    private boolean isDeleted = false;
+   @Column(name = "units_harvested")
+    private int unitsToSell;
+
+   @Column(name = "date_of_harvest",nullable = false)
+   private LocalDateTime dateOfHarvest;
+
+
 }
