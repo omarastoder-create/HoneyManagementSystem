@@ -2,14 +2,14 @@ package Rastoder.HoneyManagementSystem.dto.response;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 public record SaleTransactionResponse(
         UUID transactionId,
-        String sellerName,
-        String customerName,
-        String batchDescription,
-        BigDecimal quantity,
+        LocalDateTime saleDate,
+        UUID sellerId,
+        UUID customerId,
         BigDecimal totalPrice,
-        LocalDateTime saleDate
+        List<TransactionItemResponse> items
 ) {}
