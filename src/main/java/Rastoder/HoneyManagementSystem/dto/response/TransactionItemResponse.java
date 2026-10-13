@@ -6,7 +6,6 @@ import java.util.UUID;
 public record TransactionItemResponse(
         UUID itemId,
         UUID productId,
-        String productDescription,
         Integer quantity,
-        BigDecimal subtotalPrice) {
-}
+        BigDecimal subtotalPrice
+) {}

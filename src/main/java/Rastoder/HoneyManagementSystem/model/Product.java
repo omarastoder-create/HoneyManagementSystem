@@ -1,6 +1,8 @@
 package Rastoder.HoneyManagementSystem.model;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -34,4 +36,11 @@ public class Product {
 
     @Column(name = "date_of_harvest", nullable = false)
     private LocalDateTime dateOfHarvest;
+
+    public void reduceStock(int quantity) {
+        if (quantity > this.unitsToSell) {
+            throw new IllegalArgumentException("Nicht genug Bestand vorhanden!");
+        }
+        this.unitsToSell -= quantity;
+    }
 }
