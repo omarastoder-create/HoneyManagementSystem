@@ -1,7 +1,7 @@
 package Rastoder.HoneyManagementSystem.dto.response;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.UUID;
 
 public record ProductResponse(
@@ -9,6 +9,6 @@ public record ProductResponse(
         String description,
         BigDecimal pricePerUnit,
         int unitsToSell,
-        LocalDateTime dateOfHarvest
+        LocalDate dateOfHarvest
 ) {
 }
