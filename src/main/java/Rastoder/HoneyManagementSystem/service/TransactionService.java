@@ -20,6 +20,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -92,5 +94,19 @@ public class TransactionService {
                                 item.getSubtotalPrice()
                         )).toList()
         );
+    }
+
+    @Transactional(readOnly = true)
+    public List<SaleTransactionResponse> getAllTransactions() {
+        return saleTransactionRepository.findAll().stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public SaleTransactionResponse getTransactionById(UUID id) {
+        SaleTransaction transaction = saleTransactionRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Transaction not found"));
+        return mapToResponse(transaction);
     }
 }
