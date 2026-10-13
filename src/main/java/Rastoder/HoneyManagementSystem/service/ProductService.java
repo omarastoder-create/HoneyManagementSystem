@@ -7,6 +7,7 @@ import Rastoder.HoneyManagementSystem.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -15,14 +16,19 @@ import java.util.List;
 public class ProductService {
 
     private final ProductRepository productRepository;
+    private final FileStorageService fileStorageService; // Neu injiziert
 
     @Transactional
-    public ProductResponse createProduct(ProductRequest request) {
+    public ProductResponse createProduct(ProductRequest request, MultipartFile image) {
+        // Lagert die Speicherung aus und holt den relativen Pfad
+        String imageUrl = fileStorageService.saveImage(image);
+
         Product product = Product.builder()
                 .description(request.description())
                 .pricePerUnit(request.pricePerUnit())
                 .unitsToSell(request.unitsToSell())
                 .dateOfHarvest(request.dateOfHarvest())
+                .imageUrl(imageUrl) // Pfad an die Entity übergeben
                 .build();
 
         Product saved = productRepository.save(product);
@@ -42,7 +48,8 @@ public class ProductService {
                 product.getDescription(),
                 product.getPricePerUnit(),
                 product.getUnitsToSell(),
-                product.getDateOfHarvest()
+                product.getDateOfHarvest(),
+                product.getImageUrl() // Bild-URL ins DTO mappen
         );
     }
 }

@@ -9,6 +9,7 @@ public record ProductResponse(
         String description,
         BigDecimal pricePerUnit,
         int unitsToSell,
-        LocalDate dateOfHarvest
+        LocalDate dateOfHarvest,
+        String imageUrl
 ) {
 }
