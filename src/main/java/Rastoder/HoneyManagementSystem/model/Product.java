@@ -41,4 +41,6 @@ public class Product {
         }
         this.unitsToSell -= quantity;
     }
+    @Column(name = "image_url")
+    private String imageUrl;
 }

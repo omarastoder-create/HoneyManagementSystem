@@ -12,5 +12,6 @@ public record ProductRequest(
         @NotBlank String description,
         @NotNull @Positive BigDecimal pricePerUnit,
         @Min(1) int unitsToSell,
-        @NotNull LocalDate dateOfHarvest
+        @NotNull LocalDate dateOfHarvest,
+         String imageUrl
 ) {}
