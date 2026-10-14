@@ -1,3 +1,4 @@
+// 3. Backend: src/main/java/Rastoder/HoneyManagementSystem/service/TransactionService.java
 package Rastoder.HoneyManagementSystem.service;
 
 import Rastoder.HoneyManagementSystem.dto.request.SaleTransactionRequest;
@@ -19,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -58,9 +60,11 @@ public class TransactionService {
                 throw new IllegalArgumentException("Nicht genug Bestand für Produkt: " + product.getDescription());
             }
 
+            // Bestand wird auch bei Geschenken und Rabatten sauber reduziert
             product.reduceStock(itemReq.quantity());
 
-            BigDecimal subtotal = product.getPricePerUnit().multiply(BigDecimal.valueOf(itemReq.quantity()));
+            BigDecimal effectiveUnitPrice = resolveEffectiveUnitPrice(itemReq, product);
+            BigDecimal subtotal = effectiveUnitPrice.multiply(BigDecimal.valueOf(itemReq.quantity()));
             calculatedTotal = calculatedTotal.add(subtotal);
 
             TransactionItem item = TransactionItem.builder()
@@ -79,33 +83,58 @@ public class TransactionService {
         return mapToResponse(saved);
     }
 
+    private BigDecimal resolveEffectiveUnitPrice(TransactionItemRequest itemReq, Product product) {
+        if (itemReq.isGift()) {
+            return BigDecimal.ZERO;
+        }
+        if (itemReq.customPricePerUnit() != null) {
+            if (itemReq.customPricePerUnit().compareTo(BigDecimal.ZERO) < 0) {
+                throw new IllegalArgumentException("Der Preis darf nicht negativ sein.");
+            }
+            return itemReq.customPricePerUnit();
+        }
+        return product.getPricePerUnit();
+    }
+
     private SaleTransactionResponse mapToResponse(SaleTransaction transaction) {
+        List<TransactionItemResponse> itemResponses = transaction.getItems().stream()
+                .map(item -> {
+                    BigDecimal effectiveUnitPrice = item.getQuantity() > 0
+                            ? item.getSubtotalPrice().divide(BigDecimal.valueOf(item.getQuantity()), 2, RoundingMode.HALF_UP)
+                            : BigDecimal.ZERO;
+                    boolean isGift = item.getSubtotalPrice().compareTo(BigDecimal.ZERO) == 0;
+
+                    return new TransactionItemResponse(
+                            item.getItemId(),
+                            item.getProduct().getProductId(),
+                            item.getProduct().getDescription(),
+                            item.getQuantity(),
+                            effectiveUnitPrice,
+                            item.getSubtotalPrice(),
+                            isGift
+                    );
+                }).toList();
+
         return new SaleTransactionResponse(
                 transaction.getTransactionId(),
                 transaction.getSaleDate(),
-                transaction.getSeller().getSellerId(),
-                transaction.getCustomer().getCustomerId(),
+                transaction.getSeller().getName(),
+                transaction.getCustomer().getName(),
                 transaction.getTotalPrice(),
-                transaction.getItems().stream()
-                        .map(item -> new TransactionItemResponse(
-                                item.getItemId(),
-                                item.getProduct().getProductId(),
-                                item.getQuantity(),
-                                item.getSubtotalPrice()
-                        )).toList()
+                itemResponses
         );
     }
 
     @Transactional(readOnly = true)
     public List<SaleTransactionResponse> getAllTransactions() {
-        return saleTransactionRepository.findAll().stream()
+        return saleTransactionRepository.findAllByOrderBySaleDateDesc().stream()
                 .map(this::mapToResponse)
                 .toList();
     }
 
     @Transactional(readOnly = true)
     public SaleTransactionResponse getTransactionById(UUID id) {
-        SaleTransaction transaction = saleTransactionRepository.findById(id)
+        SaleTransaction transaction = saleTransactionRepository.findWithDetailsByTransactionId(id)
                 .orElseThrow(() -> new EntityNotFoundException("Transaction not found"));
         return mapToResponse(transaction);
     }
