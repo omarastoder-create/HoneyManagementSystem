@@ -80,25 +80,32 @@ public class TransactionService {
     }
 
     private SaleTransactionResponse mapToResponse(SaleTransaction transaction) {
+        List<TransactionItemResponse> itemResponses = transaction.getItems().stream()
+                .map(item -> new TransactionItemResponse(
+                        item.getProduct().getDescription(),
+                        item.getQuantity(),
+                        item.getProduct().getPricePerUnit(),
+                        item.getSubtotalPrice()
+                )).toList();
+
+        // Annahme: Seller und Customer haben eine Methode getName() oder Vor-/Nachname.
+        // Falls deine Entitäten getFirstName() / getLastName() nutzen, passe es entsprechend an.
+        String sellerFullName = transaction.getSeller().getName();
+        String customerFullName = transaction.getCustomer().getName();
+
         return new SaleTransactionResponse(
                 transaction.getTransactionId(),
                 transaction.getSaleDate(),
-                transaction.getSeller().getSellerId(),
-                transaction.getCustomer().getCustomerId(),
+                sellerFullName,
+                customerFullName,
                 transaction.getTotalPrice(),
-                transaction.getItems().stream()
-                        .map(item -> new TransactionItemResponse(
-                                item.getItemId(),
-                                item.getProduct().getProductId(),
-                                item.getQuantity(),
-                                item.getSubtotalPrice()
-                        )).toList()
+                itemResponses
         );
     }
 
     @Transactional(readOnly = true)
     public List<SaleTransactionResponse> getAllTransactions() {
-        return saleTransactionRepository.findAll().stream()
+        return saleTransactionRepository.findAllByOrderBySaleDateDesc().stream()
                 .map(this::mapToResponse)
                 .toList();
     }
