@@ -1,3 +1,4 @@
+// Backend: src/main/java/Rastoder/HoneyManagementSystem/dto/response/SaleTransactionResponse.java
 package Rastoder.HoneyManagementSystem.dto.response;
 
 import java.math.BigDecimal;
@@ -8,8 +9,12 @@ import java.util.UUID;
 public record SaleTransactionResponse(
         UUID transactionId,
         LocalDateTime saleDate,
-        UUID sellerId,
-        UUID customerId,
+        String sellerName,
+        String customerName,
         BigDecimal totalPrice,
         List<TransactionItemResponse> items
-) {}
+) {
+    public SaleTransactionResponse {
+        items = items != null ? List.copyOf(items) : List.of();
+    }
+}
