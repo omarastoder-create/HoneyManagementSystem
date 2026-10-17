@@ -1,4 +1,4 @@
-package com.rastoder.HoneyManagementSystem.service;
+package Rastoder.HoneyManagementSystem.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
