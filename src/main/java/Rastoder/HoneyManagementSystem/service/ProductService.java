@@ -16,7 +16,7 @@ import java.util.List;
 public class ProductService {
 
     private final ProductRepository productRepository;
-    private final FileStorageService fileStorageService; // Neu injiziert
+    private final FileStorageService fileStorageService;
 
     @Transactional
     public ProductResponse createProduct(ProductRequest request, MultipartFile image) {
