@@ -19,6 +19,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -70,6 +71,22 @@ class ProductServiceTest {
         assertThat(response.pricePerUnit()).isEqualTo(new BigDecimal("12.50"));
         assertThat(response.unitsToSell()).isEqualTo(50);
         assertThat(response.imageUrl()).isEqualTo(savedImagePath);
+    }
+
+    @Test
+    @DisplayName("createProduct: Without image, should persist product without storing a file")
+    void createProduct_WithoutImage_ShouldNotStoreFile() {
+        // Given
+        var request = new ProductRequest("Waldhonig", new BigDecimal("15.00"), 10, LocalDate.now(), null);
+        when(productRepository.save(any(Product.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // When
+        ProductResponse response = productService.createProduct(request, null);
+
+        // Then
+        verify(fileStorageService, never()).saveImage(any());
+        assertThat(response.imageUrl()).isNull();
+        assertThat(response.description()).isEqualTo("Waldhonig");
     }
 
     @Test
