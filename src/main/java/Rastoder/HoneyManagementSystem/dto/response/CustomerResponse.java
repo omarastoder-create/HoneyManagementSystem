@@ -7,6 +7,7 @@ public record CustomerResponse(
         String name,
         String familyName,
         String description,
-        String phoneNumber
+        String phoneNumber,
+        String email
 ) {
 }

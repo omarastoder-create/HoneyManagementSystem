@@ -31,4 +31,15 @@ public class Customer {
 
     @Column(unique = true)
     private String phoneNumber;
+
+    @Column(unique = true)
+    private String email;
+
+    public void updateDetails(String name, String familyName, String description, String phoneNumber, String email) {
+        this.name = name;
+        this.familyName = familyName;
+        this.description = description;
+        this.phoneNumber = phoneNumber;
+        this.email = email;
+    }
 }
