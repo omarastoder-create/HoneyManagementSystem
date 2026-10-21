@@ -23,6 +23,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -110,10 +112,17 @@ public class TransactionService {
                 transaction.getTransactionId(),
                 transaction.getSaleDate(),
                 transaction.getSeller().getName(),
-                transaction.getCustomer().getName(),
+                fullName(transaction.getCustomer()),
                 transaction.getTotalPrice(),
                 itemResponses
         );
+    }
+
+    // "Max Mustermann" – first names alone are ambiguous on receipts and lists
+    private static String fullName(Customer customer) {
+        return Stream.of(customer.getName(), customer.getFamilyName())
+                .filter(part -> part != null && !part.isBlank())
+                .collect(Collectors.joining(" "));
     }
 
     @Transactional(readOnly = true)

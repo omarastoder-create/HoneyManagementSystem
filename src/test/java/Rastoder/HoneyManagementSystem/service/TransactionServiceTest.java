@@ -61,7 +61,7 @@ class TransactionServiceTest {
         UUID prodGiftId = UUID.randomUUID();
 
         var seller = Seller.builder().sellerId(sellerId).name("Omar").build();
-        var customer = Customer.builder().customerId(customerId).name("Max").build();
+        var customer = Customer.builder().customerId(customerId).name("Max").familyName("Mustermann").build();
 
         var prodRegular = Product.builder()
                 .productId(prodRegularId)
@@ -116,7 +116,7 @@ class TransactionServiceTest {
         // Gesamtpreis: (2 * 12.00) + (3 * 10.00) + (1 * 0.00) = 54.00
         assertThat(response.totalPrice()).isEqualByComparingTo("54.00");
         assertThat(response.sellerName()).isEqualTo("Omar");
-        assertThat(response.customerName()).isEqualTo("Max");
+        assertThat(response.customerName()).isEqualTo("Max Mustermann");
         assertThat(response.items()).hasSize(3);
 
         // Reihenfolgen-unabhängige Prüfung für Set<TransactionItem>

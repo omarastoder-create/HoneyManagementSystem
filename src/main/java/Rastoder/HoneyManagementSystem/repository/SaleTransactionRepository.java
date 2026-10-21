@@ -30,11 +30,11 @@ public interface SaleTransactionRepository extends JpaRepository<SaleTransaction
 
     @Query("""
             SELECT new Rastoder.HoneyManagementSystem.dto.response.PerformerStat(
-                st.customer.name, SUM(st.totalPrice)
+                CONCAT(st.customer.name, ' ', st.customer.familyName), SUM(st.totalPrice)
             )
             FROM SaleTransaction st
             WHERE st.saleDate BETWEEN :startDateTime AND :endDateTime
-            GROUP BY st.customer.customerId, st.customer.name
+            GROUP BY st.customer.customerId, st.customer.name, st.customer.familyName
             ORDER BY SUM(st.totalPrice) DESC
             """)
     List<PerformerStat> findTopCustomersInPeriod(
