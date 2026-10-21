@@ -2,26 +2,56 @@ package Rastoder.HoneyManagementSystem.config;
 
 import Rastoder.HoneyManagementSystem.controller.ExpenseController;
 import Rastoder.HoneyManagementSystem.service.ExpenseService;
+import Rastoder.HoneyManagementSystem.service.FileStorageService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Simulates the browser's CORS "preflight" request that Angular triggers
+ * CORS: simulates the browser's "preflight" request that Angular triggers
  * before every non-simple request (PATCH, DELETE, JSON POST, ...).
+ * Uploads: files written by FileStorageService must be served back by WebConfig.
  */
 @WebMvcTest(ExpenseController.class)
-class WebConfigCorsTest {
+@Import(FileStorageService.class)
+class WebConfigTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private FileStorageService fileStorageService;
+
+    @Test
+    @DisplayName("Uploaded receipts and images are served from the folder they were stored in")
+    void uploadedFiles_ShouldBeServed() throws Exception {
+        String pdfUrl = fileStorageService.saveReceipt(
+                new MockMultipartFile("file", "r.pdf", "application/pdf", "%PDF-1.4 test".getBytes()));
+        String imageUrl = fileStorageService.saveImage(new MockMultipartFile("file", "h.png", "image/png",
+                new byte[]{(byte) 0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n', 0, 0, 0, 0}));
+
+        try {
+            mockMvc.perform(get(pdfUrl))
+                    .andExpect(status().isOk())
+                    .andExpect(header().string("Content-Type", "application/pdf"));
+            mockMvc.perform(get(imageUrl))
+                    .andExpect(status().isOk())
+                    .andExpect(header().string("Content-Type", "image/png"));
+        } finally {
+            fileStorageService.deleteFile(pdfUrl);
+            fileStorageService.deleteFile(imageUrl);
+        }
+    }
 
     @MockitoBean
     private ExpenseService expenseService;

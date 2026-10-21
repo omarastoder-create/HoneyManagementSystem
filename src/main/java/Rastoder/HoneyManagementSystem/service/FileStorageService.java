@@ -1,6 +1,7 @@
 package Rastoder.HoneyManagementSystem.service;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -20,17 +21,21 @@ import java.util.UUID;
 @Service
 public class FileStorageService {
 
-    // Where files live on disk and under which URL prefix WebConfig serves them.
-    private enum Area {
-        IMAGES("uploads/images", "/images/"),
-        RECEIPTS("uploads/receipts", "/receipts/");
+    // Sub-folder on disk and the URL prefix under which WebConfig serves it.
+    public enum Area {
+        IMAGES("images", "/images/"),
+        RECEIPTS("receipts", "/receipts/");
 
-        private final Path directory;
+        private final String folder;
         private final String publicPrefix;
 
-        Area(String directory, String publicPrefix) {
-            this.directory = Path.of(directory).toAbsolutePath().normalize();
+        Area(String folder, String publicPrefix) {
+            this.folder = folder;
             this.publicPrefix = publicPrefix;
+        }
+
+        public String publicPrefix() {
+            return publicPrefix;
         }
     }
 
@@ -56,14 +61,24 @@ public class FileStorageService {
     private static final byte[] WEBP = "WEBP".getBytes(StandardCharsets.US_ASCII);
     private static final byte[] PDF_MAGIC = "%PDF-".getBytes(StandardCharsets.US_ASCII);
 
-    public FileStorageService() {
+    private final Path root;
+
+    // Single source of truth for the upload folder: files are written here and
+    // WebConfig serves them from exactly the same absolute path.
+    public FileStorageService(@Value("${app.storage.root:uploads}") String root) {
+        this.root = Path.of(root).toAbsolutePath().normalize();
         try {
             for (Area area : Area.values()) {
-                Files.createDirectories(area.directory);
+                Files.createDirectories(directory(area));
             }
         } catch (IOException e) {
             throw new UncheckedIOException("Could not initialize storage directory.", e);
         }
+    }
+
+    /** Absolute folder of an area, e.g. C:/.../uploads/images */
+    public Path directory(Area area) {
+        return root.resolve(area.folder);
     }
 
     /**
@@ -90,8 +105,9 @@ public class FileStorageService {
         }
         for (Area area : Area.values()) {
             if (publicUrl.startsWith(area.publicPrefix)) {
-                Path target = area.directory.resolve(publicUrl.substring(area.publicPrefix.length())).normalize();
-                if (!area.directory.equals(target.getParent())) {
+                Path directory = directory(area);
+                Path target = directory.resolve(publicUrl.substring(area.publicPrefix.length())).normalize();
+                if (!directory.equals(target.getParent())) {
                     return;
                 }
                 try {
@@ -162,7 +178,7 @@ public class FileStorageService {
 
             String filename = UUID.randomUUID() + "." + extension;
             try (InputStream in = file.getInputStream()) {
-                Files.copy(in, area.directory.resolve(filename));
+                Files.copy(in, directory(area).resolve(filename));
             }
             return area.publicPrefix + filename;
         } catch (IOException e) {

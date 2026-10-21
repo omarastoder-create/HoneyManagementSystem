@@ -17,7 +17,7 @@ class FileStorageServiceTest {
     private static final byte[] JPEG_BYTES = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xE0, 0, 0};
     private static final byte[] PDF_BYTES = "%PDF-1.7\n%âãÏÓ\n".getBytes(StandardCharsets.ISO_8859_1);
 
-    private final FileStorageService fileStorageService = new FileStorageService();
+    private final FileStorageService fileStorageService = new FileStorageService("uploads");
 
     @Test
     @DisplayName("saveImage: With valid PNG, should store under a generated name and return path")
