@@ -7,8 +7,6 @@ import Rastoder.HoneyManagementSystem.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -26,7 +24,7 @@ public class ProductService {
         String imageUrl = null;
         if (image != null && !image.isEmpty()) {
             imageUrl = fileStorageService.saveImage(image);
-            deleteImageOnRollback(imageUrl);
+            fileStorageService.deleteOnRollback(imageUrl);
         }
 
         Product product = Product.builder()
@@ -39,23 +37,6 @@ public class ProductService {
 
         Product saved = productRepository.save(product);
         return mapToProductResponse(saved);
-    }
-
-    // The file is written to disk immediately, but the product row is only
-    // committed at the end of the transaction. If that commit fails, remove the
-    // file again so no orphaned images pile up in the uploads folder.
-    private void deleteImageOnRollback(String imageUrl) {
-        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            return;
-        }
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCompletion(int status) {
-                if (status == STATUS_ROLLED_BACK) {
-                    fileStorageService.deleteImage(imageUrl);
-                }
-            }
-        });
     }
 
     @Transactional(readOnly = true)

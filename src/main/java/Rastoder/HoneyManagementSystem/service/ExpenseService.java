@@ -9,6 +9,7 @@ import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.UUID;
@@ -18,6 +19,7 @@ import java.util.UUID;
 public class ExpenseService {
 
     private final ExpenseRepository expenseRepository;
+    private final FileStorageService fileStorageService;
 
     @Transactional(readOnly = true)
     public List<ExpenseResponse> getAllExpenses() {
@@ -47,10 +49,33 @@ public class ExpenseService {
 
     @Transactional
     public void deleteExpense(UUID id) {
-        if (!expenseRepository.existsById(id)) {
-            throw new EntityNotFoundException("Ausgabe mit ID " + id + " nicht gefunden.");
-        }
-        expenseRepository.deleteById(id);
+        Expense expense = findEntityOrThrow(id);
+        expenseRepository.delete(expense);
+        fileStorageService.deleteAfterCommit(expense.getReceiptUrl());
+    }
+
+    // Uploads (or replaces) the receipt of an expense.
+    @Transactional
+    public ExpenseResponse attachReceipt(UUID id, MultipartFile file) {
+        Expense expense = findEntityOrThrow(id);
+
+        String newReceiptUrl = fileStorageService.saveReceipt(file);
+        fileStorageService.deleteOnRollback(newReceiptUrl);
+
+        String oldReceiptUrl = expense.getReceiptUrl();
+        expense.setReceiptUrl(newReceiptUrl);
+        fileStorageService.deleteAfterCommit(oldReceiptUrl);
+
+        return mapToResponse(expense);
+    }
+
+    @Transactional
+    public ExpenseResponse removeReceipt(UUID id) {
+        Expense expense = findEntityOrThrow(id);
+        String oldReceiptUrl = expense.getReceiptUrl();
+        expense.setReceiptUrl(null);
+        fileStorageService.deleteAfterCommit(oldReceiptUrl);
+        return mapToResponse(expense);
     }
 
     private Expense findEntityOrThrow(UUID id) {
@@ -65,7 +90,7 @@ public class ExpenseService {
                 entity.getSupplierName(),
                 entity.getExpenseDate(),
                 entity.getAmount(),
-                entity.getReceiptImagePath()
+                entity.getReceiptUrl()
         );
     }
 
@@ -74,6 +99,5 @@ public class ExpenseService {
         if (request.supplierName() != null) entity.setSupplierName(request.supplierName());
         if (request.expenseDate() != null) entity.setExpenseDate(request.expenseDate());
         if (request.amount() != null) entity.setAmount(request.amount());
-        if (request.receiptImagePath() != null) entity.setReceiptImagePath(request.receiptImagePath());
     }
 }

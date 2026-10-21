@@ -15,6 +15,7 @@ class FileStorageServiceTest {
 
     private static final byte[] PNG_BYTES = {(byte) 0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n', 0, 0, 0, 0};
     private static final byte[] JPEG_BYTES = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xE0, 0, 0};
+    private static final byte[] PDF_BYTES = "%PDF-1.7\n%âãÏÓ\n".getBytes(StandardCharsets.ISO_8859_1);
 
     private final FileStorageService fileStorageService = new FileStorageService();
 
@@ -30,7 +31,7 @@ class FileStorageServiceTest {
         // Then
         assertThat(path).startsWith("/images/").endsWith(".png").doesNotContain("honey");
         assertThat(storedFile(path)).exists();
-        fileStorageService.deleteImage(path);
+        fileStorageService.deleteFile(path);
     }
 
     @Test
@@ -44,7 +45,7 @@ class FileStorageServiceTest {
 
         // Then
         assertThat(path).endsWith(".jpg");
-        fileStorageService.deleteImage(path);
+        fileStorageService.deleteFile(path);
     }
 
     @Test
@@ -91,7 +92,7 @@ class FileStorageServiceTest {
         // When / Then
         assertThatThrownBy(() -> fileStorageService.saveImage(file))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("File content does not match its image type.");
+                .hasMessage("File content does not match its type.");
     }
 
     @Test
@@ -106,7 +107,60 @@ class FileStorageServiceTest {
         // Then
         assertThat(path).startsWith("/images/").doesNotContain("..").doesNotContain("passwd");
         assertThat(storedFile(path)).exists();
-        fileStorageService.deleteImage(path);
+        fileStorageService.deleteFile(path);
+    }
+
+    @Test
+    @DisplayName("saveReceipt: With valid PDF, should store under /receipts/ with .pdf extension")
+    void saveReceipt_WithValidPdf_ShouldReturnReceiptPath() {
+        // Given
+        var file = new MockMultipartFile("file", "rechnung.pdf", "application/pdf", PDF_BYTES);
+
+        // When
+        String path = fileStorageService.saveReceipt(file);
+
+        // Then
+        assertThat(path).startsWith("/receipts/").endsWith(".pdf");
+        assertThat(storedFile(path)).exists();
+        fileStorageService.deleteFile(path);
+        assertThat(storedFile(path)).doesNotExist();
+    }
+
+    @Test
+    @DisplayName("saveReceipt: Photo of a receipt (JPEG) should also be accepted")
+    void saveReceipt_WithJpeg_ShouldReturnReceiptPath() {
+        // When
+        String path = fileStorageService.saveReceipt(
+                new MockMultipartFile("file", "beleg.jpg", "image/jpeg", JPEG_BYTES));
+
+        // Then
+        assertThat(path).startsWith("/receipts/").endsWith(".jpg");
+        fileStorageService.deleteFile(path);
+    }
+
+    @Test
+    @DisplayName("saveReceipt: Fake PDF should be rejected")
+    void saveReceipt_WithSpoofedPdf_ShouldThrowException() {
+        // Given
+        var file = new MockMultipartFile("file", "rechnung.pdf", "application/pdf",
+                "<html></html>".getBytes(StandardCharsets.UTF_8));
+
+        // When / Then
+        assertThatThrownBy(() -> fileStorageService.saveReceipt(file))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("File content does not match its type.");
+    }
+
+    @Test
+    @DisplayName("saveImage: PDF is allowed for receipts but not as a product image")
+    void saveImage_WithPdf_ShouldThrowException() {
+        // Given
+        var file = new MockMultipartFile("file", "honey.pdf", "application/pdf", PDF_BYTES);
+
+        // When / Then
+        assertThatThrownBy(() -> fileStorageService.saveImage(file))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Only PNG, JPEG or WebP images are allowed.");
     }
 
     @Test
@@ -117,7 +171,7 @@ class FileStorageServiceTest {
                 new MockMultipartFile("file", "honey.png", "image/png", PNG_BYTES));
 
         // When
-        fileStorageService.deleteImage(path);
+        fileStorageService.deleteFile(path);
 
         // Then
         assertThat(storedFile(path)).doesNotExist();
@@ -127,13 +181,14 @@ class FileStorageServiceTest {
     @DisplayName("deleteImage: Should ignore paths outside the upload directory")
     void deleteImage_WithTraversalPath_ShouldDoNothing() {
         // When / Then - must not throw and must not touch anything outside uploads/images
-        fileStorageService.deleteImage("/images/../../pom.xml");
-        fileStorageService.deleteImage(null);
+        fileStorageService.deleteFile("/images/../../pom.xml");
+        fileStorageService.deleteFile(null);
 
         assertThat(Path.of("pom.xml")).exists();
     }
 
+    // "/images/x.png" -> uploads/images/x.png, "/receipts/x.pdf" -> uploads/receipts/x.pdf
     private static Path storedFile(String publicPath) {
-        return Path.of("uploads/images", publicPath.substring("/images/".length()));
+        return Path.of("uploads", publicPath.substring(1));
     }
 }

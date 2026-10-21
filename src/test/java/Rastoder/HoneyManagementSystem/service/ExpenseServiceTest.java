@@ -11,6 +11,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mock.web.MockMultipartFile;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -29,6 +30,9 @@ class ExpenseServiceTest {
     @Mock
     private ExpenseRepository expenseRepository;
 
+    @Mock
+    private FileStorageService fileStorageService;
+
     @InjectMocks
     private ExpenseService expenseService;
 
@@ -44,7 +48,7 @@ class ExpenseServiceTest {
         expense.setSupplierName("Imkerbedarf");
         expense.setExpenseDate(date);
         expense.setAmount(new BigDecimal("49.99"));
-        expense.setReceiptImagePath("path/to/receipt.png");
+        expense.setReceiptUrl("/receipts/receipt.pdf");
 
         when(expenseRepository.findAllByOrderByExpenseDateDesc()).thenReturn(List.of(expense));
 
@@ -55,7 +59,7 @@ class ExpenseServiceTest {
         verify(expenseRepository).findAllByOrderByExpenseDateDesc();
         assertThat(result).hasSize(1);
         assertThat(result.get(0)).isEqualTo(new ExpenseResponse(
-                id, "Wachs", "Imkerbedarf", date, new BigDecimal("49.99"), "path/to/receipt.png"
+                id, "Wachs", "Imkerbedarf", date, new BigDecimal("49.99"), "/receipts/receipt.pdf"
         ));
     }
 
@@ -97,7 +101,7 @@ class ExpenseServiceTest {
     void createExpense_ShouldSaveAndReturnResponse() {
         // Given
         LocalDate date = LocalDate.now();
-        var request = new ExpenseRequest("Gläser", "Imker-Shop", date, new BigDecimal("120.00"), "img.png");
+        var request = new ExpenseRequest("Gläser", "Imker-Shop", date, new BigDecimal("120.00"));
         UUID id = UUID.randomUUID();
 
         var savedExpense = new Expense();
@@ -106,7 +110,6 @@ class ExpenseServiceTest {
         savedExpense.setSupplierName(request.supplierName());
         savedExpense.setExpenseDate(request.expenseDate());
         savedExpense.setAmount(request.amount());
-        savedExpense.setReceiptImagePath(request.receiptImagePath());
 
         when(expenseRepository.save(any(Expense.class))).thenReturn(savedExpense);
 
@@ -129,7 +132,7 @@ class ExpenseServiceTest {
         existingExpense.setExpenseId(id);
         existingExpense.setTitle("Old Title");
 
-        var request = new ExpenseRequest("New Title", "Supplier", date, new BigDecimal("50.00"), "new.png");
+        var request = new ExpenseRequest("New Title", "Supplier", date, new BigDecimal("50.00"));
 
         when(expenseRepository.findById(id)).thenReturn(Optional.of(existingExpense));
         when(expenseRepository.save(any(Expense.class))).thenReturn(existingExpense);
@@ -148,7 +151,7 @@ class ExpenseServiceTest {
     void updateExpense_WhenNotFound_ShouldThrowException() {
         // Given
         UUID id = UUID.randomUUID();
-        var request = new ExpenseRequest("Title", "Supplier", LocalDate.now(), BigDecimal.TEN, "path");
+        var request = new ExpenseRequest("Title", "Supplier", LocalDate.now(), BigDecimal.TEN);
         when(expenseRepository.findById(id)).thenReturn(Optional.empty());
 
         // When / Then
@@ -157,19 +160,21 @@ class ExpenseServiceTest {
     }
 
     @Test
-    @DisplayName("deleteExpense: When found, should delete entity")
+    @DisplayName("deleteExpense: When found, should delete entity and its receipt file")
     void deleteExpense_WhenFound_ShouldDelete() {
         // Given
         UUID id = UUID.randomUUID();
-        when(expenseRepository.existsById(id)).thenReturn(true);
-        doNothing().when(expenseRepository).deleteById(id);
+        var expense = new Expense();
+        expense.setExpenseId(id);
+        expense.setReceiptUrl("/receipts/r.pdf");
+        when(expenseRepository.findById(id)).thenReturn(Optional.of(expense));
 
         // When
         expenseService.deleteExpense(id);
 
         // Then
-        verify(expenseRepository).existsById(id);
-        verify(expenseRepository).deleteById(id);
+        verify(expenseRepository).delete(expense);
+        verify(fileStorageService).deleteAfterCommit("/receipts/r.pdf");
     }
 
     @Test
@@ -177,12 +182,66 @@ class ExpenseServiceTest {
     void deleteExpense_WhenNotFound_ShouldThrowException() {
         // Given
         UUID id = UUID.randomUUID();
-        when(expenseRepository.existsById(id)).thenReturn(false);
+        when(expenseRepository.findById(id)).thenReturn(Optional.empty());
 
         // When / Then
         assertThatThrownBy(() -> expenseService.deleteExpense(id))
                 .isInstanceOf(EntityNotFoundException.class);
-        verify(expenseRepository, never()).deleteById(any());
+        verify(expenseRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("attachReceipt: Should store the file, link it and schedule the old receipt for deletion")
+    void attachReceipt_ShouldReplaceReceipt() {
+        // Given
+        UUID id = UUID.randomUUID();
+        var expense = new Expense();
+        expense.setExpenseId(id);
+        expense.setReceiptUrl("/receipts/old.pdf");
+        var file = new MockMultipartFile("file", "rechnung.pdf", "application/pdf", "%PDF-1.7".getBytes());
+
+        when(expenseRepository.findById(id)).thenReturn(Optional.of(expense));
+        when(fileStorageService.saveReceipt(file)).thenReturn("/receipts/new.pdf");
+
+        // When
+        ExpenseResponse response = expenseService.attachReceipt(id, file);
+
+        // Then
+        assertThat(response.receiptUrl()).isEqualTo("/receipts/new.pdf");
+        verify(fileStorageService).deleteOnRollback("/receipts/new.pdf");
+        verify(fileStorageService).deleteAfterCommit("/receipts/old.pdf");
+    }
+
+    @Test
+    @DisplayName("attachReceipt: When expense does not exist, should not store any file")
+    void attachReceipt_WhenNotFound_ShouldNotStoreFile() {
+        // Given
+        UUID id = UUID.randomUUID();
+        when(expenseRepository.findById(id)).thenReturn(Optional.empty());
+        var file = new MockMultipartFile("file", "r.pdf", "application/pdf", "%PDF-1.7".getBytes());
+
+        // When / Then
+        assertThatThrownBy(() -> expenseService.attachReceipt(id, file))
+                .isInstanceOf(EntityNotFoundException.class);
+        verify(fileStorageService, never()).saveReceipt(any());
+    }
+
+    @Test
+    @DisplayName("removeReceipt: Should unlink the receipt and delete the file after commit")
+    void removeReceipt_ShouldUnlinkAndDelete() {
+        // Given
+        UUID id = UUID.randomUUID();
+        var expense = new Expense();
+        expense.setExpenseId(id);
+        expense.setReceiptUrl("/receipts/old.pdf");
+        when(expenseRepository.findById(id)).thenReturn(Optional.of(expense));
+
+        // When
+        ExpenseResponse response = expenseService.removeReceipt(id);
+
+        // Then
+        assertThat(response.receiptUrl()).isNull();
+        verify(fileStorageService).deleteAfterCommit("/receipts/old.pdf");
     }
     @Test
     @DisplayName("updateExpense: When request fields are null, should retain existing entity values (false-branch coverage)")
@@ -196,9 +255,9 @@ class ExpenseServiceTest {
         existingExpense.setSupplierName("Old Supplier");
         existingExpense.setExpenseDate(originalDate);
         existingExpense.setAmount(new BigDecimal("10.00"));
-        existingExpense.setReceiptImagePath("old.png");
+        existingExpense.setReceiptUrl("/receipts/old.pdf");
 
-        var request = new ExpenseRequest(null, null, null, null, null);
+        var request = new ExpenseRequest(null, null, null, null);
 
         when(expenseRepository.findById(id)).thenReturn(Optional.of(existingExpense));
         when(expenseRepository.save(any(Expense.class))).thenReturn(existingExpense);
