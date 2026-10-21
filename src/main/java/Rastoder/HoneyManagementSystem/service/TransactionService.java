@@ -55,11 +55,8 @@ public class TransactionService {
             Product product = productRepository.findById(itemReq.productId())
                     .orElseThrow(() -> new EntityNotFoundException("Product not found"));
 
-            if (product.getUnitsToSell() < itemReq.quantity()) {
-                throw new IllegalArgumentException("Nicht genug Bestand für Produkt: " + product.getDescription());
-            }
-
-            // Bestand wird auch bei Geschenken und Rabatten sauber reduziert
+            // Bestand wird auch bei Geschenken und Rabatten sauber reduziert.
+            // Die Prüfung auf genug Bestand passiert in Product.reduceStock().
             product.reduceStock(itemReq.quantity());
 
             BigDecimal effectiveUnitPrice = resolveEffectiveUnitPrice(itemReq, product);

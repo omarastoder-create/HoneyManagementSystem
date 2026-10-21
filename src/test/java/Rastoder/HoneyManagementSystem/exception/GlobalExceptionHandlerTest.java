@@ -8,6 +8,7 @@ import jakarta.validation.constraints.NotBlank;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.BeanPropertyBindingResult;
@@ -158,6 +159,19 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody().message())
                 .isEqualTo("The data conflicts with an existing record")
                 .doesNotContain("PHONE_NUMBER");
+    }
+
+    @Test
+    @DisplayName("OptimisticLockingFailureException: should return 409")
+    void handleOptimisticLock_ShouldReturnConflict() {
+        // When
+        var response = handler.handleOptimisticLock(
+                new OptimisticLockingFailureException("Row was updated by another transaction"));
+
+        // Then
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().message()).contains("Please reload and try again");
     }
 
     @Test
