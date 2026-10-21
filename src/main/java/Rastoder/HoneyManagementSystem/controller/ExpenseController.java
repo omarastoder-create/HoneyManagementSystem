@@ -5,6 +5,7 @@ import Rastoder.HoneyManagementSystem.dto.request.ExpenseRequest;
 import Rastoder.HoneyManagementSystem.dto.response.ExpenseResponse;
 import Rastoder.HoneyManagementSystem.service.ExpenseService;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,13 +15,10 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/expenses")
 @CrossOrigin(origins = "http://localhost:4200")
+@RequiredArgsConstructor
 public class ExpenseController {
 
     private final ExpenseService expenseService;
-
-    public ExpenseController(ExpenseService expenseService) {
-        this.expenseService = expenseService;
-    }
 
     @GetMapping
     public ResponseEntity<List<ExpenseResponse>> getAllExpenses() {
