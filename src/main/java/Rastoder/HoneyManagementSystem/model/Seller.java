@@ -6,8 +6,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.util.HashSet;
-import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -25,8 +23,4 @@ public class Seller {
 
     @Column(nullable = false, unique = true)
     private String name;
-
-    @OneToMany(mappedBy = "seller", cascade = CascadeType.ALL, orphanRemoval = true)
-    @Builder.Default
-    private Set<SaleTransaction> transactions = new HashSet<>();
 }
