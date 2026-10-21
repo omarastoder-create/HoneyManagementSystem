@@ -88,7 +88,7 @@ class TransactionServiceTest {
         var itemCustom = new TransactionItemRequest(prodCustomId, 3, new BigDecimal("10.00"), false);
         var itemGift = new TransactionItemRequest(prodGiftId, 1, null, true);
 
-        var request = new SaleTransactionRequest(customerId, sellerId, List.of(itemRegular, itemCustom, itemGift));
+        var request = new SaleTransactionRequest(sellerId, customerId, List.of(itemRegular, itemCustom, itemGift));
 
         when(sellerRepository.findById(request.sellerId())).thenReturn(Optional.of(seller));
         when(customerRepository.findById(request.customerId())).thenReturn(Optional.of(customer));
@@ -237,17 +237,76 @@ class TransactionServiceTest {
     }
 
     @Test
-    @DisplayName("getAllTransactions: Should return mapped list and cover quantity <= 0 branch in mapToResponse")
+    @DisplayName("createSaleTransaction: Custom price of 0 without gift flag should not be reported as a gift")
+    void createSaleTransaction_WithZeroCustomPrice_ShouldNotBeMarkedAsGift() {
+        // Given
+        UUID productId = UUID.randomUUID();
+        var product = Product.builder()
+                .productId(productId)
+                .description("Rapshonig")
+                .pricePerUnit(new BigDecimal("9.00"))
+                .unitsToSell(5)
+                .build();
+
+        var itemReq = new TransactionItemRequest(productId, 1, BigDecimal.ZERO, false);
+        var request = new SaleTransactionRequest(UUID.randomUUID(), UUID.randomUUID(), List.of(itemReq));
+
+        when(sellerRepository.findById(request.sellerId())).thenReturn(Optional.of(new Seller()));
+        when(customerRepository.findById(request.customerId())).thenReturn(Optional.of(new Customer()));
+        when(productRepository.findById(productId)).thenReturn(Optional.of(product));
+        when(saleTransactionRepository.save(any(SaleTransaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // When
+        SaleTransactionResponse response = transactionService.createSaleTransaction(request);
+
+        // Then
+        var item = response.items().get(0);
+        assertThat(item.pricePerUnit()).isEqualByComparingTo("0.00");
+        assertThat(item.isGift()).isFalse();
+    }
+
+    @Test
+    @DisplayName("createSaleTransaction: Unit price is stored exactly, not derived from subtotal / quantity")
+    void createSaleTransaction_ShouldStoreExactUnitPrice() {
+        // Given
+        UUID productId = UUID.randomUUID();
+        var product = Product.builder()
+                .productId(productId)
+                .description("Lindenhonig")
+                .pricePerUnit(new BigDecimal("3.335"))
+                .unitsToSell(10)
+                .build();
+
+        var itemReq = new TransactionItemRequest(productId, 3, null, false);
+        var request = new SaleTransactionRequest(UUID.randomUUID(), UUID.randomUUID(), List.of(itemReq));
+
+        when(sellerRepository.findById(request.sellerId())).thenReturn(Optional.of(new Seller()));
+        when(customerRepository.findById(request.customerId())).thenReturn(Optional.of(new Customer()));
+        when(productRepository.findById(productId)).thenReturn(Optional.of(product));
+        when(saleTransactionRepository.save(any(SaleTransaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // When
+        SaleTransactionResponse response = transactionService.createSaleTransaction(request);
+
+        // Then
+        assertThat(response.items().get(0).pricePerUnit()).isEqualByComparingTo("3.335");
+        assertThat(response.items().get(0).subtotalPrice()).isEqualByComparingTo("10.005");
+    }
+
+    @Test
+    @DisplayName("getAllTransactions: Should return mapped list with stored unit price and gift flag")
     void getAllTransactions_ShouldReturnMappedTransactions() {
         // Given
         var seller = Seller.builder().name("Omar").build();
         var customer = Customer.builder().name("Kunde A").build();
         var product = Product.builder().productId(UUID.randomUUID()).description("Honig").build();
 
-        var zeroQtyItem = TransactionItem.builder()
+        var giftItem = TransactionItem.builder()
                 .itemId(UUID.randomUUID())
                 .product(product)
-                .quantity(0)
+                .quantity(2)
+                .unitPrice(BigDecimal.ZERO)
+                .gift(true)
                 .subtotalPrice(BigDecimal.ZERO)
                 .build();
 
@@ -257,7 +316,7 @@ class TransactionServiceTest {
                 .seller(seller)
                 .customer(customer)
                 .totalPrice(BigDecimal.ZERO)
-                .items(Set.of(zeroQtyItem))
+                .items(Set.of(giftItem))
                 .build();
 
         when(saleTransactionRepository.findAllByOrderBySaleDateDesc()).thenReturn(List.of(tx));
@@ -269,6 +328,7 @@ class TransactionServiceTest {
         verify(saleTransactionRepository).findAllByOrderBySaleDateDesc();
         assertThat(result).hasSize(1);
         assertThat(result.get(0).items().get(0).pricePerUnit()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(result.get(0).items().get(0).isGift()).isTrue();
     }
 
     @Test
@@ -276,11 +336,12 @@ class TransactionServiceTest {
     void getTransactionById_WhenFound_ShouldReturnResponse() {
         // Given
         var product = Product.builder().productId(UUID.randomUUID()).description("Honig").build();
-        var zeroQtyItem = TransactionItem.builder()
+        var item = TransactionItem.builder()
                 .itemId(UUID.randomUUID())
                 .product(product)
-                .quantity(0)
-                .subtotalPrice(BigDecimal.ZERO)
+                .quantity(1)
+                .unitPrice(new BigDecimal("25.00"))
+                .subtotalPrice(new BigDecimal("25.00"))
                 .build();
         UUID txId = UUID.randomUUID();
         var tx = SaleTransaction.builder()
@@ -289,7 +350,7 @@ class TransactionServiceTest {
                 .seller(Seller.builder().name("Omar").build())
                 .customer(Customer.builder().name("Kunde").build())
                 .totalPrice(new BigDecimal("25.00"))
-                .items(Set.of(zeroQtyItem))
+                .items(Set.of(item))
                 .build();
 
         when(saleTransactionRepository.findWithDetailsByTransactionId(txId)).thenReturn(Optional.of(tx));
