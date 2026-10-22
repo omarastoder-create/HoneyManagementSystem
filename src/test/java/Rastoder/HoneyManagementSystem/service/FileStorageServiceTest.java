@@ -3,6 +3,8 @@ package Rastoder.HoneyManagementSystem.service;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -185,6 +187,94 @@ class FileStorageServiceTest {
         fileStorageService.deleteFile(null);
 
         assertThat(Path.of("pom.xml")).exists();
+    }
+
+    @Test
+    @DisplayName("saveImage: WebP images are accepted")
+    void saveImage_WithWebp_ShouldReturnWebpPath() {
+        // Given - RIFF....WEBP header
+        byte[] webp = {'R', 'I', 'F', 'F', 0, 0, 0, 0, 'W', 'E', 'B', 'P', 0};
+
+        // When
+        String path = fileStorageService.saveImage(new MockMultipartFile("file", "honey.webp", "image/webp", webp));
+
+        // Then
+        assertThat(path).endsWith(".webp");
+        fileStorageService.deleteFile(path);
+    }
+
+    @Test
+    @DisplayName("saveReceipt: Unsupported type should name the allowed receipt formats")
+    void saveReceipt_WithUnsupportedType_ShouldThrow() {
+        var file = new MockMultipartFile("file", "beleg.txt", "text/plain", "hello".getBytes(StandardCharsets.UTF_8));
+
+        assertThatThrownBy(() -> fileStorageService.saveReceipt(file))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Only PDF, PNG, JPEG or WebP files are allowed.");
+    }
+
+    @Test
+    @DisplayName("deleteFile: Unknown URL prefixes are ignored")
+    void deleteFile_WithUnknownPrefix_ShouldDoNothing() {
+        fileStorageService.deleteFile("/other/pom.xml");
+
+        assertThat(Path.of("pom.xml")).exists();
+    }
+
+    @Test
+    @DisplayName("deleteOnRollback: File is removed when the transaction rolls back, kept when it commits")
+    void deleteOnRollback_ShouldOnlyDeleteOnRollback() {
+        String rolledBack = fileStorageService.saveReceipt(pdf());
+        String committed = fileStorageService.saveReceipt(pdf());
+
+        inTransaction(() -> fileStorageService.deleteOnRollback(rolledBack), TransactionSynchronization.STATUS_ROLLED_BACK);
+        inTransaction(() -> fileStorageService.deleteOnRollback(committed), TransactionSynchronization.STATUS_COMMITTED);
+
+        assertThat(storedFile(rolledBack)).doesNotExist();
+        assertThat(storedFile(committed)).exists();
+        fileStorageService.deleteFile(committed);
+    }
+
+    @Test
+    @DisplayName("deleteAfterCommit: File is removed only after a successful commit")
+    void deleteAfterCommit_ShouldOnlyDeleteOnCommit() {
+        String committed = fileStorageService.saveReceipt(pdf());
+        String rolledBack = fileStorageService.saveReceipt(pdf());
+
+        inTransaction(() -> fileStorageService.deleteAfterCommit(committed), TransactionSynchronization.STATUS_COMMITTED);
+        inTransaction(() -> fileStorageService.deleteAfterCommit(rolledBack), TransactionSynchronization.STATUS_ROLLED_BACK);
+
+        assertThat(storedFile(committed)).doesNotExist();
+        assertThat(storedFile(rolledBack)).exists();
+        fileStorageService.deleteFile(rolledBack);
+    }
+
+    @Test
+    @DisplayName("deleteAfterCommit: Without a transaction the file is deleted immediately; null is ignored")
+    void deleteAfterCommit_WithoutTransaction_ShouldDeleteImmediately() {
+        String path = fileStorageService.saveReceipt(pdf());
+
+        fileStorageService.deleteAfterCommit(path);
+        fileStorageService.deleteAfterCommit(null);
+        fileStorageService.deleteOnRollback(null);
+
+        assertThat(storedFile(path)).doesNotExist();
+    }
+
+    private static MockMultipartFile pdf() {
+        return new MockMultipartFile("file", "r.pdf", "application/pdf", PDF_BYTES);
+    }
+
+    // Simulates what Spring's transaction manager does: register callbacks, then complete with the given status.
+    private static void inTransaction(Runnable work, int completionStatus) {
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            work.run();
+            TransactionSynchronizationManager.getSynchronizations()
+                    .forEach(sync -> sync.afterCompletion(completionStatus));
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
     }
 
     // "/images/x.png" -> uploads/images/x.png, "/receipts/x.pdf" -> uploads/receipts/x.pdf
