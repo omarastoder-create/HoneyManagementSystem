@@ -69,6 +69,16 @@ class WebConfigTest {
     }
 
     @Test
+    @DisplayName("Preflight from the native iOS app (capacitor://localhost) should be allowed")
+    void preflight_FromCapacitorApp_ShouldBeAllowed() throws Exception {
+        mockMvc.perform(options("/api/v1/expenses")
+                        .header("Origin", "capacitor://localhost")
+                        .header("Access-Control-Request-Method", "POST"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", "capacitor://localhost"));
+    }
+
+    @Test
     @DisplayName("Preflight from an unknown origin should be rejected")
     void preflight_FromUnknownOrigin_ShouldBeForbidden() throws Exception {
         mockMvc.perform(options("/api/v1/expenses")
