@@ -4,6 +4,7 @@ import Rastoder.HoneyManagementSystem.dto.request.SellerRequest;
 import Rastoder.HoneyManagementSystem.dto.response.SellerResponse;
 import Rastoder.HoneyManagementSystem.service.SellerService;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
@@ -13,13 +14,10 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/sellers")
+@RequiredArgsConstructor
 public class SellerController {
 
     private final SellerService sellerService;
-
-    public SellerController(SellerService sellerService) {
-        this.sellerService = sellerService;
-    }
 
     @PostMapping
     public ResponseEntity<SellerResponse> createSeller(@Valid @RequestBody SellerRequest request) {

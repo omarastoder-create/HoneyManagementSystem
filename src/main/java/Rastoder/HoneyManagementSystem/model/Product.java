@@ -35,12 +35,19 @@ public class Product {
     @Column(name = "date_of_harvest", nullable = false)
     private LocalDate dateOfHarvest;
 
+    @Column(name = "image_url")
+    private String imageUrl;
+
+    // Optimistic locking: Hibernate adds "WHERE version = ?" to every UPDATE.
+    // If another transaction changed this product in the meantime, the update
+    // matches 0 rows and fails instead of silently overwriting the stock.
+    @Version
+    private Long version;
+
     public void reduceStock(int quantity) {
         if (quantity > this.unitsToSell) {
-            throw new IllegalArgumentException("Nicht genug Bestand vorhanden!");
+            throw new IllegalArgumentException("Nicht genug Bestand für Produkt: " + this.description);
         }
         this.unitsToSell -= quantity;
     }
-    @Column(name = "image_url")
-    private String imageUrl;
 }

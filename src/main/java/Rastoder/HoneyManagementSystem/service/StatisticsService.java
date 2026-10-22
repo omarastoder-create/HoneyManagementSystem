@@ -5,6 +5,7 @@ import Rastoder.HoneyManagementSystem.dto.response.MonthlyRevenueStat;
 import Rastoder.HoneyManagementSystem.dto.response.PerformerStat;
 import Rastoder.HoneyManagementSystem.repository.ExpenseRepository;
 import Rastoder.HoneyManagementSystem.repository.SaleTransactionRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -17,17 +18,13 @@ import java.time.temporal.TemporalAdjusters;
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class StatisticsService {
 
     private static final Pageable TOP_ONE = PageRequest.of(0, 1);
 
     private final SaleTransactionRepository saleTransactionRepository;
     private final ExpenseRepository expenseRepository;
-
-    public StatisticsService(SaleTransactionRepository saleTransactionRepository, ExpenseRepository expenseRepository) {
-        this.saleTransactionRepository = saleTransactionRepository;
-        this.expenseRepository = expenseRepository;
-    }
 
     @Transactional(readOnly = true)
     public DashboardStatisticsResponse getDashboardStatistics() {

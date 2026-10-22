@@ -20,10 +20,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -56,11 +57,8 @@ public class TransactionService {
             Product product = productRepository.findById(itemReq.productId())
                     .orElseThrow(() -> new EntityNotFoundException("Product not found"));
 
-            if (product.getUnitsToSell() < itemReq.quantity()) {
-                throw new IllegalArgumentException("Nicht genug Bestand für Produkt: " + product.getDescription());
-            }
-
-            // Bestand wird auch bei Geschenken und Rabatten sauber reduziert
+            // Bestand wird auch bei Geschenken und Rabatten sauber reduziert.
+            // Die Prüfung auf genug Bestand passiert in Product.reduceStock().
             product.reduceStock(itemReq.quantity());
 
             BigDecimal effectiveUnitPrice = resolveEffectiveUnitPrice(itemReq, product);
@@ -71,6 +69,8 @@ public class TransactionService {
                     .transaction(transaction)
                     .product(product)
                     .quantity(itemReq.quantity())
+                    .unitPrice(effectiveUnitPrice)
+                    .gift(itemReq.isGift())
                     .subtotalPrice(subtotal)
                     .build();
 
@@ -98,31 +98,31 @@ public class TransactionService {
 
     private SaleTransactionResponse mapToResponse(SaleTransaction transaction) {
         List<TransactionItemResponse> itemResponses = transaction.getItems().stream()
-                .map(item -> {
-                    BigDecimal effectiveUnitPrice = item.getQuantity() > 0
-                            ? item.getSubtotalPrice().divide(BigDecimal.valueOf(item.getQuantity()), 2, RoundingMode.HALF_UP)
-                            : BigDecimal.ZERO;
-                    boolean isGift = item.getSubtotalPrice().compareTo(BigDecimal.ZERO) == 0;
-
-                    return new TransactionItemResponse(
-                            item.getItemId(),
-                            item.getProduct().getProductId(),
-                            item.getProduct().getDescription(),
-                            item.getQuantity(),
-                            effectiveUnitPrice,
-                            item.getSubtotalPrice(),
-                            isGift
-                    );
-                }).toList();
+                .map(item -> new TransactionItemResponse(
+                        item.getItemId(),
+                        item.getProduct().getProductId(),
+                        item.getProduct().getDescription(),
+                        item.getQuantity(),
+                        item.getUnitPrice(),
+                        item.getSubtotalPrice(),
+                        item.isGift()
+                )).toList();
 
         return new SaleTransactionResponse(
                 transaction.getTransactionId(),
                 transaction.getSaleDate(),
                 transaction.getSeller().getName(),
-                transaction.getCustomer().getName(),
+                fullName(transaction.getCustomer()),
                 transaction.getTotalPrice(),
                 itemResponses
         );
+    }
+
+    // "Max Mustermann" – first names alone are ambiguous on receipts and lists
+    private static String fullName(Customer customer) {
+        return Stream.of(customer.getName(), customer.getFamilyName())
+                .filter(part -> part != null && !part.isBlank())
+                .collect(Collectors.joining(" "));
     }
 
     @Transactional(readOnly = true)

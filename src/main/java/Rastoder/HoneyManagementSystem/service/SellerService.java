@@ -4,19 +4,17 @@ import Rastoder.HoneyManagementSystem.dto.request.SellerRequest;
 import Rastoder.HoneyManagementSystem.dto.response.SellerResponse;
 import Rastoder.HoneyManagementSystem.model.Seller;
 import Rastoder.HoneyManagementSystem.repository.SellerRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class SellerService {
 
     private final SellerRepository sellerRepository;
-
-    public SellerService(SellerRepository sellerRepository) {
-        this.sellerRepository = sellerRepository;
-    }
 
     @Transactional
     public SellerResponse createSeller(SellerRequest request) {

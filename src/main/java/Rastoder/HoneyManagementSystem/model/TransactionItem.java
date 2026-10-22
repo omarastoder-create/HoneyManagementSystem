@@ -33,6 +33,13 @@ public class TransactionItem {
     @Column(nullable = false, updatable = false)
     private Integer quantity;
 
+    // Snapshot of the price actually charged per unit at sale time (0 for gifts).
+    @Column(name = "unit_price", nullable = false, updatable = false)
+    private BigDecimal unitPrice;
+
+    @Column(name = "is_gift", nullable = false, updatable = false)
+    private boolean gift;
+
     @Column(name = "subtotal_price", nullable = false, updatable = false)
     private BigDecimal subtotalPrice;
 }

@@ -30,11 +30,11 @@ public interface SaleTransactionRepository extends JpaRepository<SaleTransaction
 
     @Query("""
             SELECT new Rastoder.HoneyManagementSystem.dto.response.PerformerStat(
-                st.customer.name, COALESCE(SUM(st.totalPrice), 0)
+                CONCAT(st.customer.name, ' ', st.customer.familyName), SUM(st.totalPrice)
             )
             FROM SaleTransaction st
             WHERE st.saleDate BETWEEN :startDateTime AND :endDateTime
-            GROUP BY st.customer.customerId, st.customer.name
+            GROUP BY st.customer.customerId, st.customer.name, st.customer.familyName
             ORDER BY SUM(st.totalPrice) DESC
             """)
     List<PerformerStat> findTopCustomersInPeriod(
@@ -45,7 +45,7 @@ public interface SaleTransactionRepository extends JpaRepository<SaleTransaction
 
     @Query("""
             SELECT new Rastoder.HoneyManagementSystem.dto.response.PerformerStat(
-                st.seller.name, COALESCE(SUM(st.totalPrice), 0)
+                st.seller.name, SUM(st.totalPrice)
             )
             FROM SaleTransaction st
             WHERE st.saleDate BETWEEN :startDateTime AND :endDateTime
@@ -56,12 +56,11 @@ public interface SaleTransactionRepository extends JpaRepository<SaleTransaction
             @Param("startDateTime") LocalDateTime startDateTime,
             @Param("endDateTime") LocalDateTime endDateTime,
             Pageable pageable
-
     );
 
     @Query("""
             SELECT new Rastoder.HoneyManagementSystem.dto.response.MonthlyRevenueStat(
-                YEAR(st.saleDate), MONTH(st.saleDate), COALESCE(SUM(st.totalPrice), 0)
+                YEAR(st.saleDate), MONTH(st.saleDate), SUM(st.totalPrice)
             )
             FROM SaleTransaction st
             WHERE YEAR(st.saleDate) = :year

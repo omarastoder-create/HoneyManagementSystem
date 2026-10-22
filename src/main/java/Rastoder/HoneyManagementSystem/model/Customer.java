@@ -6,8 +6,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.util.HashSet;
-import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -34,7 +32,14 @@ public class Customer {
     @Column(unique = true)
     private String phoneNumber;
 
-    @OneToMany(mappedBy = "customer", cascade = CascadeType.ALL, orphanRemoval = true)
-    @Builder.Default
-    private Set<SaleTransaction> transactions = new HashSet<>();
+    @Column(unique = true)
+    private String email;
+
+    public void updateDetails(String name, String familyName, String description, String phoneNumber, String email) {
+        this.name = name;
+        this.familyName = familyName;
+        this.description = description;
+        this.phoneNumber = phoneNumber;
+        this.email = email;
+    }
 }

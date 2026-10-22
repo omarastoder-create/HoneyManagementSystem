@@ -1,4 +1,3 @@
-// src/main/java/Rastoder/HoneyManagementSystem/dto/response/ExpenseResponseDto.java
 package Rastoder.HoneyManagementSystem.dto.response;
 
 import java.math.BigDecimal;
@@ -11,5 +10,5 @@ public record ExpenseResponse(
         String supplierName,
         LocalDate expenseDate,
         BigDecimal amount,
-        String receiptImagePath
+        String receiptUrl
 ) {}

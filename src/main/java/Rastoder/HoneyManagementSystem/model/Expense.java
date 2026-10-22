@@ -38,5 +38,7 @@ public class Expense {
 
     private String category;
 
-    private String receiptImagePath;
+    // Public URL of the uploaded receipt (PDF or photo), set only via the receipt upload endpoint
+    @Column(name = "receipt_url")
+    private String receiptUrl;
 }

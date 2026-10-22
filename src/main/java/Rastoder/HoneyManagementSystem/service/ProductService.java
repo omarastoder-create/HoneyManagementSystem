@@ -20,8 +20,12 @@ public class ProductService {
 
     @Transactional
     public ProductResponse createProduct(ProductRequest request, MultipartFile image) {
-        // Lagert die Speicherung aus und holt den relativen Pfad
-        String imageUrl = fileStorageService.saveImage(image);
+        // Das Bild ist optional
+        String imageUrl = null;
+        if (image != null && !image.isEmpty()) {
+            imageUrl = fileStorageService.saveImage(image);
+            fileStorageService.deleteOnRollback(imageUrl);
+        }
 
         Product product = Product.builder()
                 .description(request.description())
